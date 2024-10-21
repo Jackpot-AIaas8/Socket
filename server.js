@@ -30,11 +30,11 @@ app.get('/', (req, res) => {
 // 경매 데이터를 받는 엔드포인트
 app.post('/send-auction', (req, res) => {
   const auctionData = req.body;
- 
+  console.log("받은 경매 : " + auctionData.auctionStatus + "// " + auctionData.auctionId);
   if(req.body.auctionStatus === 1){
+    io.emit('auction start', auctionData);
     startAuctionTimer();
   }
-
   // 받은 데이터를 WebSocket을 통해 모든 클라이언트에 전달
   io.emit('auction update', auctionData);
 
@@ -60,17 +60,35 @@ app.post('/send-bid', (req, res) => {
 app.post('/end-auction', (req, res) => {
   const auctionId = req.body.auctionId;
   const auctionStatus = req.body.auctionStatus;
-  console.log(`Received auctionId: ${auctionId} for auction end`);
+
   if (!auctionId || !auctionStatus) {
     console.log('auctionId or auctionStatus is missing.');
-    res.status(400).send('auctionId or auctionStatus is missing.');
-    return;
+    return res.status(400).send('auctionId or auctionStatus is missing.');
   }
 
-  // 경매 종료 로직 실행
+  console.log(`Received auctionId: ${auctionId} for auction end`);
+
+  // 경매가 이미 종료된 경우 더 이상 처리하지 않음
+  if (auctionStatus === 2) {
+    console.log(`경매 ${auctionId}는 이미 종료되었습니다.`);
+    return res.status(400).send(`경매 ${auctionId}는 이미 종료되었습니다.`);
+  }
+
+  // 경매 종료 처리
   endAuction(auctionId, auctionStatus);
 
-  res.send('Auction end data received');
+  // 모든 클라이언트에 경매 종료 이벤트 전송
+  io.emit('auction ended', { auctionId, status: 2 });
+  console.log(`경매 ${auctionId} 종료.`);
+
+  // 타이머 종료 (필요시 경매 종료 후 타이머는 더 이상 사용되지 않음)
+  if (auctionTimer) {
+    clearInterval(auctionTimer); // 기존 타이머 종료
+    auctionTimer = null; // 타이머 초기화
+    isTimerRunning = false; // 타이머 실행 상태 초기화
+  }
+
+  res.send('Auction end data received.');
 });
 
 app.post('/last-bidder', (req, res) => {
@@ -85,27 +103,47 @@ app.post('/last-bidder', (req, res) => {
 });
 
 const endAuction = (auctionId, auctionStatus) => {
-  console.log("받은 id 값 : " + auctionId + "받은 status 값 : " + auctionStatus);
+  console.log("Received auctionId: " + auctionId + " with status: " + auctionStatus);
+
+  if (!auctionId || !auctionStatus) {
+    console.log('auctionId or auctionStatus is missing.');
+    return;  // 필요한 정보가 없을 경우 종료 처리
+  }
+
   if (auctionStatus === 2) {
     console.log(`경매 ${auctionId}는 이미 종료되었습니다.`);
     return;  // 경매가 이미 종료된 경우 더 이상 처리하지 않음
   }
 
-  console.log(`경매 ${auctionId} 종료.`);
+  console.log(`경매 ${auctionId} 종료 처리 완료.`);
+  
+  // 경매 종료 이벤트를 모든 클라이언트에 전송
+  io.emit('auction ended', { auctionId, status: 2 });
+
+  // 타이머 상태 초기화 (경매 종료 시점에)
+  resetTimerState(); 
 };
 
 let auctionTimer; // 타이머 변수
 let timeLeft = 30; // 4분 = 240초
 let isTimerRunning = false; // 타이머 실행 여부
 
+const resetTimerState = () => {
+  clearInterval(auctionTimer); // 기존 타이머 종료
+  auctionTimer = null; // 타이머 변수 초기화
+  isTimerRunning = false; // 타이머 실행 상태 초기화
+  timeLeft = 30; // 타이머를 초기값으로 리셋
+};
+
 const startAuctionTimer = (auctionId) => {
+  // resetTimerState();
   if (isTimerRunning) {
     console.log("타이머가 이미 실행 중입니다.");
     return; // 타이머가 이미 실행 중이면 새로 시작하지 않음
   }
 
   console.log("타이머 시작");
-  isTimerRunning = true;
+  isTimerRunning = true; // 타이머가 시작됨을 표시
 
   auctionTimer = setInterval(() => {
     if (timeLeft > 0) {
@@ -113,23 +151,14 @@ const startAuctionTimer = (auctionId) => {
       console.log(timeLeft);
       io.emit('timer update', timeLeft); // 남은 시간 클라이언트에 전송
     } else {
-      clearInterval(auctionTimer); // 시간이 다 되면 타이머 종료
-      endAuction(auctionId); // 경매 종료 함수 호출
-      isTimerRunning = false; // 타이머 종료
+      // 시간이 다 되면 타이머 종료 및 경매 종료 처리
+      clearInterval(auctionTimer); // 타이머 종료
+      auctionTimer = null; // 타이머 변수 초기화
+      isTimerRunning = false; // 타이머 실행 상태 초기화
+      // endAuction(auctionId); // 경매 종료 함수 호출
     }
   }, 1000); // 1초마다 실행
 };
-
-io.use((socket, next) => {
-  const path = socket.handshake.query.path;
-
-  if (path === '/auction/bid') {
-    next(); // 경로가 /auction/bid이면 연결 허용
-  } else {
-    const err = new Error('Unauthorized');
-    next(err); // 경로가 일치하지 않으면 연결 거부
-  }
-});
 
 // WebSocket 연결 관리
 io.on('connection', (socket) => {
