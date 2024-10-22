@@ -33,7 +33,7 @@ app.post('/send-auction', (req, res) => {
   console.log("받은 경매 : " + auctionData.auctionStatus + "// " + auctionData.auctionId);
   if(req.body.auctionStatus === 1){
     io.emit('auction start', auctionData);
-    startAuctionTimer();
+    startAuctionTimer();  
   }
   // 받은 데이터를 WebSocket을 통해 모든 클라이언트에 전달
   io.emit('auction update', auctionData);
@@ -48,7 +48,7 @@ app.post('/send-bid', (req, res) => {
   // WebSocket을 통해 모든 클라이언트에게 입찰 데이터를 전송
   io.emit('bid update', bidData);  // 'bid update' 이벤트로 입찰 데이터를 전송
 
-  timeLeft = 30; // 타이머를 다시 240초로 설정
+  timeLeft = 60; // 타이머를 다시 240초로 설정
   if (auctionTimer) {
     clearInterval(auctionTimer); // 기존 타이머 종료
     isTimerRunning = false;
@@ -125,14 +125,14 @@ const endAuction = (auctionId, auctionStatus) => {
 };
 
 let auctionTimer; // 타이머 변수
-let timeLeft = 30; // 4분 = 240초
+let timeLeft = 60; // 4분 = 240초
 let isTimerRunning = false; // 타이머 실행 여부
 
 const resetTimerState = () => {
   clearInterval(auctionTimer); // 기존 타이머 종료
   auctionTimer = null; // 타이머 변수 초기화
   isTimerRunning = false; // 타이머 실행 상태 초기화
-  timeLeft = 30; // 타이머를 초기값으로 리셋
+  timeLeft = 60; // 타이머를 초기값으로 리셋
 };
 
 const startAuctionTimer = (auctionId) => {
