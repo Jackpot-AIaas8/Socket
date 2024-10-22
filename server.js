@@ -22,10 +22,10 @@ const io = new Server(server, {
 
 app.use(express.json());  // JSON 데이터를 파싱하기 위한 미들웨어 설정
 
-// 클라이언트가 접속했을 때 HTML 파일 서빙
-// app.get('/', (req, res) => {
-//   res.sendFile(__dirname + '/index.html');
-// });
+클라이언트가 접속했을 때 HTML 파일 서빙
+app.get('/', (req, res) => {  
+  console.log("리버스 프록시가 정상작동 하긴 함.");
+});
 
 // 경매 데이터를 받는 엔드포인트
 app.post('/send-auction', (req, res) => {
