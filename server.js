@@ -7,14 +7,14 @@ const cors = require('cors');  // CORS 패키지 추가
 
 // CORS 미들웨어 추가
 app.use(cors({
-  origin: '*',  // React 앱에서 요청을 허용할 도메인
+  origin: 'http://10.0.1.6:80',  // React 앱에서 요청을 허용할 도메인
   methods: ['GET', 'POST'],
   credentials: false  // 인증 관련 설정(예: 쿠키)
 }));
 
 const io = new Server(server, {
   cors: {
-    origin: '*',  // CORS 허용 도메인 설정
+    origin: 'http://10.0.1.6:80',  // CORS 허용 도메인 설정
     methods: ['GET', 'POST'],
     credentials: true  // 인증 정보 허용 설정
   }
